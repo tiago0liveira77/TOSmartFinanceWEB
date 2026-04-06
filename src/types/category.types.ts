@@ -6,7 +6,8 @@ export interface Category {
   icon: string;
   color: string;
   type: TransactionType | 'ALL';
-  isDefault: boolean;
+  isSystem: boolean;
+  parentId: string | null;
   createdAt: string;
 }
 

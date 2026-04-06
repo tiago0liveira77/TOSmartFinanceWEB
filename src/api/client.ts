@@ -26,7 +26,14 @@ let failedQueue: Array<{
 }> = [];
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Auto-unwrap ApiResponse<T> envelope: { data: T, message: string, status: number }
+    const d = response.data;
+    if (d !== null && typeof d === 'object' && 'data' in d && 'status' in d && 'message' in d) {
+      response.data = (d as { data: unknown }).data;
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config as typeof error.config & { _retry?: boolean };
 
@@ -49,7 +56,8 @@ apiClient.interceptors.response.use(
           {},
           { withCredentials: true }
         );
-        const { accessToken } = response.data as { accessToken: string };
+        const raw = response.data as { data?: { accessToken: string }; accessToken?: string };
+        const accessToken = (raw?.data?.accessToken ?? raw?.accessToken) as string;
         useAuthStore.getState().setAccessToken(accessToken);
 
         failedQueue.forEach(({ resolve }) => resolve(accessToken));

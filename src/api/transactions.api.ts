@@ -29,10 +29,11 @@ export const transactionsApi = {
     await apiClient.delete(`/transactions/${id}`);
   },
 
-  importCsv: async (file: File): Promise<{ imported: number; errors: number }> => {
+  importCsv: async (file: File, accountId: string): Promise<{ imported: number; failed: number; errors: string[] }> => {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await apiClient.post<{ imported: number; errors: number }>(
+    formData.append('accountId', accountId);
+    const response = await apiClient.post<{ imported: number; failed: number; errors: string[] }>(
       '/transactions/import',
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }

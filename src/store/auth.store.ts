@@ -26,8 +26,10 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: 'sf-auth',
-      // Only persist user, never the accessToken (security)
-      partialize: (state) => ({ user: state.user }),
+      // Persist user + isAuthenticated; never the accessToken (security)
+      // isAuthenticated allows F5 without redirect; accessToken is re-obtained
+      // via the HttpOnly refresh-token cookie on the first 401.
+      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
     }
   )
 );

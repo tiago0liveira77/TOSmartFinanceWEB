@@ -1,8 +1,8 @@
 export interface CategorySummary {
   categoryId: string;
   categoryName: string;
-  categoryIcon: string;
-  categoryColor: string;
+  categoryIcon?: string;    // não devolvido pelo backend — omitir ou usar fallback
+  categoryColor?: string;   // não devolvido pelo backend — omitir ou usar fallback
   amount: number;
   percentage: number;
   transactionCount: number;
@@ -14,7 +14,7 @@ export interface MonthlySummary {
   balance: number;
   savingsRate: number;
   topCategories: CategorySummary[];
-  comparedToPreviousMonth: {
+  comparedToPreviousMonth?: {   // campo opcional — pode não vir do backend
     incomeChange: number;
     expensesChange: number;
   };

@@ -50,9 +50,11 @@ export function useDeleteTransaction() {
 export function useImportCSV() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (file: File) => transactionsApi.importCsv(file),
+    mutationFn: ({ file, accountId }: { file: File; accountId: string }) =>
+      transactionsApi.importCsv(file, accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.TRANSACTIONS] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ACCOUNTS] });
     },
   });
 }

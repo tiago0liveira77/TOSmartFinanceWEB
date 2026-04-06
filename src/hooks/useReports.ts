@@ -11,10 +11,18 @@ export function useMonthlySummary(month = currentYearMonth()) {
   });
 }
 
-export function useMonthlyTrend(months = 6) {
+export function useMonthlyTrend(fromMonth?: string, months = 6) {
   return useQuery({
-    queryKey: [QUERY_KEYS.MONTHLY_TREND, months],
-    queryFn: () => reportsApi.getMonthlyTrend(months),
+    queryKey: [QUERY_KEYS.MONTHLY_TREND, fromMonth, months],
+    queryFn: () => reportsApi.getMonthlyTrend(fromMonth, months),
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useDailyBreakdown(month = currentYearMonth()) {
+  return useQuery({
+    queryKey: ['daily-breakdown', month],
+    queryFn: () => reportsApi.getDailyBreakdown(month),
     staleTime: 1000 * 60 * 5,
   });
 }

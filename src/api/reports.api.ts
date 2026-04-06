@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { MonthlySummary, MonthlyTrend } from '@/types/report.types';
+import type { DailyBreakdown, MonthlySummary, MonthlyTrend } from '@/types/report.types';
 
 export const reportsApi = {
   // Backend: GET /reports/summary?year=N&month=N
@@ -11,10 +11,17 @@ export const reportsApi = {
     return response.data;
   },
 
-  // Backend: GET /reports/monthly-trend?months=N (year defaults to current)
-  getMonthlyTrend: async (months = 6): Promise<MonthlyTrend[]> => {
+  getMonthlyTrend: async (fromMonth?: string, months = 6): Promise<MonthlyTrend[]> => {
     const response = await apiClient.get<MonthlyTrend[]>('/reports/monthly-trend', {
-      params: { months },
+      params: { fromMonth, months },
+    });
+    return response.data;
+  },
+
+  getDailyBreakdown: async (month: string): Promise<DailyBreakdown[]> => {
+    const [year, m] = month.split('-').map(Number);
+    const response = await apiClient.get<DailyBreakdown[]>('/reports/daily-breakdown', {
+      params: { year, month: m },
     });
     return response.data;
   },

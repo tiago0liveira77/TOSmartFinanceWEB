@@ -25,13 +25,14 @@ export interface Transaction {
 
 export interface TransactionFilters {
   accountId?: string;
-  categoryId?: string;
-  type?: TransactionType;
+  categoryIds?: string[];
+  types?: TransactionType[];
   startDate?: string;
   endDate?: string;
   minAmount?: number;
   maxAmount?: number;
   search?: string;
+  settled?: boolean;
   page?: number;
   size?: number;
 }

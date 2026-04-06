@@ -4,9 +4,17 @@ import type { PaginatedResponse } from '@/types/api.types';
 
 export const transactionsApi = {
   list: async (filters: TransactionFilters = {}): Promise<PaginatedResponse<Transaction>> => {
-    const response = await apiClient.get<PaginatedResponse<Transaction>>('/transactions', {
-      params: filters,
+    const { types, categoryIds, ...rest } = filters;
+    const params = new URLSearchParams();
+    Object.entries(rest).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') params.append(k, String(v));
     });
+    types?.forEach((t) => params.append('types', t));
+    categoryIds?.forEach((id) => params.append('categoryIds', id));
+
+    const response = await apiClient.get<PaginatedResponse<Transaction>>(
+      `/transactions?${params.toString()}`
+    );
     return response.data;
   },
 

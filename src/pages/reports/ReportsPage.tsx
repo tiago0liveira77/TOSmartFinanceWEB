@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useMonthlySummary, useMonthlyTrend } from '@/hooks/useReports';
+import { useMonthlySummary, useDailyBreakdown } from '@/hooks/useReports';
 import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ExpensesByCategory } from '@/components/charts/ExpensesByCategory';
-import { MonthlyTrend } from '@/components/charts/MonthlyTrend';
+import { DailySpending } from '@/components/charts/DailySpending';
 import { formatCurrency } from '@/utils/currency';
 import { currentYearMonth } from '@/utils/date';
 import { cn } from '@/utils/cn';
@@ -36,7 +36,7 @@ function KpiCard({ label, value, change, isLoading }: KpiCardProps) {
 export function ReportsPage() {
   const [month, setMonth] = useState(currentYearMonth());
   const { data: summary, isLoading: loadingSummary } = useMonthlySummary(month);
-  const { data: trend, isLoading: loadingTrend } = useMonthlyTrend(6);
+  const { data: dailyData, isLoading: loadingDaily } = useDailyBreakdown(month);
 
   return (
     <div className="space-y-6">
@@ -87,11 +87,11 @@ export function ReportsPage() {
           )}
         </Card>
 
-        <Card title="Tendência Mensal (6 meses)">
-          {loadingTrend ? (
+        <Card title="Gastos Diários">
+          {loadingDaily ? (
             <Skeleton className="h-64 w-full" />
           ) : (
-            <MonthlyTrend data={trend ?? []} />
+            <DailySpending data={dailyData ?? []} />
           )}
         </Card>
       </div>

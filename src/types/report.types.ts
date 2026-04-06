@@ -27,6 +27,12 @@ export interface MonthlyTrend {
   balance: number;
 }
 
+export interface DailyBreakdown {
+  day: number;
+  income: number;
+  expenses: number;
+}
+
 export interface ForecastMonth {
   month: string;
   predictedExpenses: number;

@@ -49,7 +49,7 @@ export function DashboardPage() {
   const month = currentYearMonth();
 
   const { data: summary, isLoading: loadingSummary } = useMonthlySummary(month);
-  const { data: trend, isLoading: loadingTrend } = useMonthlyTrend(6);
+  const { data: trend, isLoading: loadingTrend } = useMonthlyTrend('2025-11', 6);
   const { data: recentTx, isLoading: loadingTx } = useTransactions({ size: 5, page: 0 });
   const { data: budgets, isLoading: loadingBudgets } = useBudgets(month);
 

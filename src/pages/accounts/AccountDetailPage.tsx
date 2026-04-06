@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAccount } from '@/hooks/useAccounts';
+import { useAccount, useAccountSummary, useUpdateAccount, useDeleteAccount } from '@/hooks/useAccounts';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useUIStore } from '@/store/ui.store';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
+import { AccountForm } from '@/components/accounts/AccountForm';
 import { TransactionItem } from '@/components/transactions/TransactionItem';
 import { TransactionForm } from '@/components/transactions/TransactionForm';
 import { formatCurrency } from '@/utils/currency';
@@ -25,10 +27,17 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 export function AccountDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const addToast = useUIStore((s) => s.addToast);
+
   const { data: account, isLoading: loadingAccount } = useAccount(id!);
+  const { data: summary, isLoading: loadingSummary } = useAccountSummary(id!);
+  const { mutate: deleteAccount, isPending: deleting } = useDeleteAccount();
+
   const [page, setPage] = useState(0);
   const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editAccountOpen, setEditAccountOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data: transactionsPage, isLoading: loadingTx } = useTransactions({
     accountId: id,
@@ -36,11 +45,22 @@ export function AccountDetailPage() {
     size: 10,
   });
 
+  const handleDelete = () => {
+    deleteAccount(id!, {
+      onSuccess: () => {
+        addToast({ type: 'success', title: 'Conta eliminada' });
+        navigate(ROUTES.ACCOUNTS);
+      },
+      onError: () => addToast({ type: 'error', title: 'Erro ao eliminar conta' }),
+    });
+  };
+
   if (loadingAccount) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
       </div>
     );
   }
@@ -57,36 +77,77 @@ export function AccountDetailPage() {
   return (
     <div className="space-y-6">
       {/* Back + header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate(ROUTES.ACCOUNTS)}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          ←
-        </button>
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">{account.name}</h2>
-          <p className="text-sm text-gray-500">{ACCOUNT_TYPE_LABELS[account.type]}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(ROUTES.ACCOUNTS)}
+            className="text-gray-400 hover:text-gray-600 transition-colors text-lg"
+          >
+            ←
+          </button>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">{account.name}</h2>
+            <p className="text-sm text-gray-500">{ACCOUNT_TYPE_LABELS[account.type] ?? account.type}</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setEditAccountOpen(true)}>
+            Editar
+          </Button>
+          <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
+            Eliminar
+          </Button>
         </div>
       </div>
 
-      {/* Balance card */}
-      <Card>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500">Saldo actual</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">
-              {formatCurrency(account.balance, account.currency)}
-            </p>
+      {/* Balance + monthly summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="col-span-2 lg:col-span-1">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shrink-0"
+              style={{ backgroundColor: account.color ?? '#6b7280' }}
+            >
+              {account.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Saldo actual</p>
+              <p className="text-xl font-bold text-gray-900">
+                {formatCurrency(account.balance, account.currency)}
+              </p>
+            </div>
           </div>
-          <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center text-white text-lg font-bold"
-            style={{ backgroundColor: account.color ?? '#6b7280' }}
-          >
-            {account.name.charAt(0).toUpperCase()}
-          </div>
-        </div>
-      </Card>
+        </Card>
+
+        {loadingSummary ? (
+          <>
+            <Card><Skeleton className="h-10 w-full" /></Card>
+            <Card><Skeleton className="h-10 w-full" /></Card>
+            <Card><Skeleton className="h-10 w-full" /></Card>
+          </>
+        ) : summary ? (
+          <>
+            <Card>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Receitas (mês)</p>
+              <p className="text-xl font-bold text-green-600 mt-1">
+                {formatCurrency(summary.monthIncome)}
+              </p>
+            </Card>
+            <Card>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Despesas (mês)</p>
+              <p className="text-xl font-bold text-red-500 mt-1">
+                {formatCurrency(summary.monthExpenses)}
+              </p>
+            </Card>
+            <Card>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Saldo mensal</p>
+              <p className={`text-xl font-bold mt-1 ${summary.monthNet >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                {formatCurrency(summary.monthNet)}
+              </p>
+            </Card>
+          </>
+        ) : null}
+      </div>
 
       {/* Transactions */}
       <Card
@@ -143,6 +204,7 @@ export function AccountDetailPage() {
         )}
       </Card>
 
+      {/* Modals */}
       <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Nova transação" size="lg">
         <TransactionForm
           defaultAccountId={id}
@@ -154,6 +216,26 @@ export function AccountDetailPage() {
         {editTransaction && (
           <TransactionForm transaction={editTransaction} onSuccess={() => setEditTransaction(null)} />
         )}
+      </Modal>
+
+      <Modal isOpen={editAccountOpen} onClose={() => setEditAccountOpen(false)} title="Editar conta">
+        <AccountForm account={account} onSuccess={() => setEditAccountOpen(false)} />
+      </Modal>
+
+      {/* Delete confirmation */}
+      <Modal isOpen={deleteOpen} onClose={() => setDeleteOpen(false)} title="Eliminar conta">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Tens a certeza que queres eliminar a conta <strong>{account.name}</strong>?
+            Esta acção não pode ser revertida e todas as transações associadas serão removidas.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <Button variant="secondary" onClick={() => setDeleteOpen(false)}>Cancelar</Button>
+            <Button variant="danger" onClick={handleDelete} isLoading={deleting}>
+              Eliminar conta
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

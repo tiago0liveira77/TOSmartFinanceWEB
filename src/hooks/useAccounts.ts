@@ -34,8 +34,9 @@ export function useUpdateAccount() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateAccountDto }) =>
       accountsApi.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ACCOUNTS] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ACCOUNT_DETAIL, id] });
     },
   });
 }
@@ -47,5 +48,14 @@ export function useDeleteAccount() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ACCOUNTS] });
     },
+  });
+}
+
+export function useAccountSummary(id: string) {
+  return useQuery({
+    queryKey: [QUERY_KEYS.ACCOUNT_DETAIL, id, 'summary'],
+    queryFn: () => accountsApi.getSummary(id),
+    enabled: !!id,
+    staleTime: 1000 * 60 * 2,
   });
 }

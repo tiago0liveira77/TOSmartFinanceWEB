@@ -22,7 +22,16 @@ export const authApi = {
   },
 
   getMe: async (): Promise<User> => {
-    const response = await apiClient.get<User>('/auth/me');
+    const response = await apiClient.get<User>('/users/me');
     return response.data;
+  },
+
+  updateMe: async (data: { name: string }): Promise<User> => {
+    const response = await apiClient.put<User>('/users/me', data);
+    return response.data;
+  },
+
+  changePassword: async (data: { currentPassword: string; newPassword: string }): Promise<void> => {
+    await apiClient.put('/users/me/password', data);
   },
 };

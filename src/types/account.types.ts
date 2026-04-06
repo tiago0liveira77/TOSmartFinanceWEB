@@ -28,3 +28,11 @@ export interface UpdateAccountDto {
   icon?: string;
   isActive?: boolean;
 }
+
+export interface AccountSummary {
+  accountId: string;
+  balance: number;
+  monthIncome: number;
+  monthExpenses: number;
+  monthNet: number;
+}

@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Account, CreateAccountDto, UpdateAccountDto } from '@/types/account.types';
+import type { Account, AccountSummary, CreateAccountDto, UpdateAccountDto } from '@/types/account.types';
 
 export const accountsApi = {
   list: async (): Promise<Account[]> => {
@@ -24,5 +24,10 @@ export const accountsApi = {
 
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/accounts/${id}`);
+  },
+
+  getSummary: async (id: string): Promise<AccountSummary> => {
+    const response = await apiClient.get<AccountSummary>(`/accounts/${id}/summary`);
+    return response.data;
   },
 };

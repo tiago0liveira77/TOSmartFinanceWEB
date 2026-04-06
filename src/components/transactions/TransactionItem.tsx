@@ -54,6 +54,14 @@ export function TransactionItem({ transaction, onEdit, onDelete }: TransactionIt
           ) : (
             <span className="text-xs text-gray-400">Sem categoria</span>
           )}
+          {!transaction.settled && (
+            <span className="text-xs text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded-full" title="Agendada — ainda não afeta o saldo">
+              Agendada
+            </span>
+          )}
+          {transaction.isRecurring && transaction.settled && (
+            <span className="text-xs text-blue-400" title="Recorrente">🔁</span>
+          )}
           {transaction.aiCategorized && (
             <span className="text-xs text-purple-500" title="Categorizado por IA">✨</span>
           )}

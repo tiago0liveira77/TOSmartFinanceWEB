@@ -19,6 +19,9 @@ const schema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida'),
   categoryId: z.string().uuid().optional().or(z.literal('')),
   notes: z.string().max(2000).optional(),
+  isRecurring: z.boolean().optional(),
+  recurrenceRule: z.enum(['MONTHLY', 'BIMONTHLY']).optional(),
+  occurrences: z.coerce.number().min(2).max(24).optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -57,8 +60,13 @@ export function TransactionForm({ transaction, defaultAccountId, onSuccess }: Tr
       date: transaction?.date ?? toISODate(new Date()),
       categoryId: transaction?.categoryId ?? '',
       notes: transaction?.notes ?? '',
+      isRecurring: false,
+      recurrenceRule: 'MONTHLY',
+      occurrences: 12,
     },
   });
+
+  const isRecurringChecked = watch('isRecurring');
 
   const selectedType = watch('type');
 
@@ -104,6 +112,9 @@ export function TransactionForm({ transaction, defaultAccountId, onSuccess }: Tr
         ...data,
         categoryId: data.categoryId || undefined,
         notes: data.notes || undefined,
+        isRecurring: data.isRecurring ?? false,
+        recurrenceRule: data.isRecurring ? data.recurrenceRule : undefined,
+        occurrences: data.isRecurring ? data.occurrences : undefined,
       };
       create(createPayload, {
         onSuccess: () => {
@@ -172,6 +183,37 @@ export function TransactionForm({ transaction, defaultAccountId, onSuccess }: Tr
         placeholder="Observações adicionais..."
         {...register('notes')}
       />
+
+      {!isEditing && (
+        <div className="space-y-3 border-t pt-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" className="rounded" {...register('isRecurring')} />
+            <span className="text-sm text-gray-700">Transação recorrente</span>
+          </label>
+
+          {isRecurringChecked && (
+            <div className="grid grid-cols-2 gap-3 pl-1">
+              <Select
+                label="Frequência"
+                options={[
+                  { value: 'MONTHLY', label: 'Mensal' },
+                  { value: 'BIMONTHLY', label: 'Bimensal (mês sim/não)' },
+                ]}
+                error={errors.recurrenceRule?.message}
+                {...register('recurrenceRule')}
+              />
+              <Input
+                label="Nº de meses"
+                type="number"
+                min="2"
+                max="24"
+                error={errors.occurrences?.message}
+                {...register('occurrences')}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       <Button type="submit" className="w-full" isLoading={creating || updating}>
         {transaction ? 'Guardar alterações' : 'Criar transação'}

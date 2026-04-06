@@ -29,6 +29,10 @@ export const transactionsApi = {
     await apiClient.delete(`/transactions/${id}`);
   },
 
+  deleteGroup: async (groupId: string): Promise<void> => {
+    await apiClient.delete(`/transactions/recurrence-group/${groupId}`);
+  },
+
   importCsv: async (file: File, accountId: string): Promise<{ imported: number; failed: number; errors: string[] }> => {
     const formData = new FormData();
     formData.append('file', file);

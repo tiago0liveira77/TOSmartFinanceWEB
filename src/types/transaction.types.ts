@@ -1,5 +1,5 @@
 export type TransactionType = 'INCOME' | 'EXPENSE' | 'TRANSFER';
-export type RecurrenceRule = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+export type RecurrenceRule = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'BIMONTHLY' | 'YEARLY';
 
 export interface Transaction {
   id: string;
@@ -15,6 +15,9 @@ export interface Transaction {
   notes: string | null;
   date: string;
   isRecurring: boolean;
+  recurrenceRule: RecurrenceRule | null;
+  recurrenceGroupId: string | null;
+  settled: boolean;
   aiCategorized: boolean;
   aiConfidence: number | null;
   createdAt: string;
@@ -43,6 +46,13 @@ export interface CreateTransactionDto {
   date: string;
   isRecurring?: boolean;
   recurrenceRule?: RecurrenceRule;
+  occurrences?: number;
 }
 
-export interface UpdateTransactionDto extends Partial<CreateTransactionDto> {}
+export interface UpdateTransactionDto {
+  description?: string;
+  amount?: number;
+  categoryId?: string;
+  notes?: string;
+  date?: string;
+}

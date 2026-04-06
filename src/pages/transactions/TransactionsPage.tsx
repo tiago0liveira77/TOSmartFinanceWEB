@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useTransactions, useDeleteTransaction } from '@/hooks/useTransactions';
+import { useTransactions, useDeleteTransaction, useDeleteTransactionGroup } from '@/hooks/useTransactions';
 import { useUIStore } from '@/store/ui.store';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -23,6 +23,7 @@ export function TransactionsPage() {
 
   const { data, isLoading, isFetching } = useTransactions(filters);
   const { mutate: deleteTransaction } = useDeleteTransaction();
+  const { mutate: deleteGroup } = useDeleteTransactionGroup();
 
   const handleDelete = () => {
     if (!deleteTarget) return;
@@ -33,6 +34,19 @@ export function TransactionsPage() {
         setDeleteTarget(null);
       },
       onError: () => addToast({ type: 'error', title: 'Erro ao remover transação' }),
+      onSettled: () => setDeleting(false),
+    });
+  };
+
+  const handleDeleteGroup = () => {
+    if (!deleteTarget?.recurrenceGroupId) return;
+    setDeleting(true);
+    deleteGroup(deleteTarget.recurrenceGroupId, {
+      onSuccess: () => {
+        addToast({ type: 'success', title: 'Todas as ocorrências removidas' });
+        setDeleteTarget(null);
+      },
+      onError: () => addToast({ type: 'error', title: 'Erro ao remover ocorrências' }),
       onSettled: () => setDeleting(false),
     });
   };
@@ -150,12 +164,22 @@ export function TransactionsPage() {
         <p className="text-sm text-gray-600 mb-4">
           Tens a certeza que queres remover <strong>{deleteTarget?.description}</strong>?
         </p>
-        <div className="flex gap-2">
-          <Button variant="secondary" className="flex-1" onClick={() => setDeleteTarget(null)}>
-            Cancelar
+        {deleteTarget?.recurrenceGroupId && (
+          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+            🔁 Esta é uma transação recorrente. Podes remover só esta ocorrência ou todas as do grupo.
+          </p>
+        )}
+        <div className="flex flex-col gap-2">
+          {deleteTarget?.recurrenceGroupId && (
+            <Button variant="danger" className="w-full" isLoading={deleting} onClick={handleDeleteGroup}>
+              Remover todas as ocorrências
+            </Button>
+          )}
+          <Button variant="danger" className="w-full" isLoading={deleting} onClick={handleDelete}>
+            {deleteTarget?.recurrenceGroupId ? 'Remover só esta' : 'Remover'}
           </Button>
-          <Button variant="danger" className="flex-1" isLoading={deleting} onClick={handleDelete}>
-            Remover
+          <Button variant="secondary" className="w-full" onClick={() => setDeleteTarget(null)}>
+            Cancelar
           </Button>
         </div>
       </Modal>

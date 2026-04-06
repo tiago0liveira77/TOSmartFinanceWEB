@@ -47,6 +47,18 @@ export function useDeleteTransaction() {
   });
 }
 
+export function useDeleteTransactionGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (groupId: string) => transactionsApi.deleteGroup(groupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.TRANSACTIONS] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ACCOUNTS] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS] });
+    },
+  });
+}
+
 export function useImportCSV() {
   const queryClient = useQueryClient();
   return useMutation({

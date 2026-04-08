@@ -11,5 +11,12 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: true,   // escuta em 0.0.0.0 — acessível via IP local na rede
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',  // api-gateway
+        changeOrigin: true,
+      },
+    },
   },
 });

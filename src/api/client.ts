@@ -1,10 +1,10 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/auth.store';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-
+// URL relativa — requests vão para o Vite dev server que os proxifica para o gateway.
+// Isto permite acesso via qualquer IP (ex: telemóvel em rede local) sem configuração extra.
 export const apiClient = axios.create({
-  baseURL: `${API_BASE_URL}/api/v1`,
+  baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
 });
@@ -52,7 +52,7 @@ apiClient.interceptors.response.use(
 
       try {
         const response = await axios.post(
-          `${API_BASE_URL}/api/v1/auth/refresh`,
+          '/api/v1/auth/refresh',
           {},
           { withCredentials: true }
         );

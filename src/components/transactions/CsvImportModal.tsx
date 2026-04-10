@@ -45,6 +45,11 @@ function PreviewRowItem({ row, description, checked, onDescriptionChange, onTogg
     row.type === 'EXPENSE' ? 'text-red-600' :
     'text-blue-600';
 
+  const wasNormalized =
+    isValid &&
+    row.normalizedDescription != null &&
+    row.normalizedDescription !== row.description;
+
   return (
     <>
       <tr className={
@@ -71,16 +76,27 @@ function PreviewRowItem({ row, description, checked, onDescriptionChange, onTogg
         {/* Descrição — editável para linhas válidas */}
         <td className="px-3 py-2 min-w-[180px]">
           {isValid ? (
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => onDescriptionChange(e.target.value)}
-              disabled={!checked}
-              className="w-full text-xs text-gray-900 bg-transparent border border-transparent rounded px-1 py-0.5
-                         hover:border-gray-200 focus:border-primary-400 focus:bg-white focus:outline-none
-                         disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              title="Clica para editar a descrição"
-            />
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => onDescriptionChange(e.target.value)}
+                disabled={!checked}
+                className="flex-1 text-xs text-gray-900 bg-transparent border border-transparent rounded px-1 py-0.5
+                           hover:border-gray-200 focus:border-primary-400 focus:bg-white focus:outline-none
+                           disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Clica para editar a descrição"
+              />
+              {wasNormalized && (
+                <span
+                  title={`Original do CSV: "${row.description}"`}
+                  className="flex-shrink-0 text-primary-400 hover:text-primary-600 cursor-help leading-none"
+                  aria-label="Descrição normalizada — ver original"
+                >
+                  ✦
+                </span>
+              )}
+            </div>
           ) : (
             <span className="text-xs text-gray-400 block truncate max-w-[200px]">
               {row.description || '—'}
@@ -156,7 +172,7 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
           const checked = new Set<number>();
           data.rows.forEach((row) => {
             if (row.status === 'VALID') {
-              descs[row.lineNumber] = row.description;
+              descs[row.lineNumber] = row.normalizedDescription ?? row.description;
               checked.add(row.lineNumber);
             }
           });

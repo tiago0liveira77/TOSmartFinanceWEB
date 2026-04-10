@@ -75,6 +75,7 @@ export interface CsvPreviewRow {
   status: 'VALID' | 'INVALID';
   date: string | null;
   description: string;
+  normalizedDescription: string | null;
   amount: number | null;
   type: string | null;
   errors: string[];

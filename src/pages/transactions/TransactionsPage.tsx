@@ -176,7 +176,7 @@ export function TransactionsPage() {
         )}
       </Modal>
 
-      <Modal isOpen={csvOpen} onClose={() => setCsvOpen(false)} title="Importar CSV" size="lg">
+      <Modal isOpen={csvOpen} onClose={() => setCsvOpen(false)} title="Importar CSV" size="3xl">
         <CsvImportModal onSuccess={() => setCsvOpen(false)} />
       </Modal>
 

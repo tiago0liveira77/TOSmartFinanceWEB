@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Transaction, CreateTransactionDto, UpdateTransactionDto, TransactionFilters } from '@/types/transaction.types';
+import type { Transaction, CreateTransactionDto, UpdateTransactionDto, TransactionFilters, CsvPreviewResponse, CsvConfirmRequest } from '@/types/transaction.types';
 import type { PaginatedResponse } from '@/types/api.types';
 
 export const transactionsApi = {
@@ -39,6 +39,26 @@ export const transactionsApi = {
 
   deleteGroup: async (groupId: string): Promise<void> => {
     await apiClient.delete(`/transactions/recurrence-group/${groupId}`);
+  },
+
+  confirmImport: async (request: CsvConfirmRequest): Promise<{ imported: number; failed: number; errors: string[] }> => {
+    const response = await apiClient.post<{ imported: number; failed: number; errors: string[] }>(
+      '/transactions/import/confirm',
+      request
+    );
+    return response.data;
+  },
+
+  previewCsv: async (file: File, accountId: string): Promise<CsvPreviewResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('accountId', accountId);
+    const response = await apiClient.post<CsvPreviewResponse>(
+      '/transactions/import/preview',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return response.data;
   },
 
   importCsv: async (file: File, accountId: string): Promise<{ imported: number; failed: number; errors: string[] }> => {

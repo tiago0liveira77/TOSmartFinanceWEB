@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { transactionsApi } from '@/api/transactions.api';
 import { QUERY_KEYS } from '@/constants/queryKeys';
-import type { TransactionFilters, CreateTransactionDto, UpdateTransactionDto } from '@/types/transaction.types';
+import type { TransactionFilters, CreateTransactionDto, UpdateTransactionDto, CsvConfirmRequest } from '@/types/transaction.types';
 
 export function useTransactions(filters: TransactionFilters = {}) {
   return useQuery({
@@ -56,6 +56,24 @@ export function useDeleteTransactionGroup() {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ACCOUNTS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.REPORTS] });
     },
+  });
+}
+
+export function useConfirmImport() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: CsvConfirmRequest) => transactionsApi.confirmImport(request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.TRANSACTIONS] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ACCOUNTS] });
+    },
+  });
+}
+
+export function usePreviewCSV() {
+  return useMutation({
+    mutationFn: ({ file, accountId }: { file: File; accountId: string }) =>
+      transactionsApi.previewCsv(file, accountId),
   });
 }
 

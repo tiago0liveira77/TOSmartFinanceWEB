@@ -57,3 +57,32 @@ export interface UpdateTransactionDto {
   notes?: string;
   date?: string;
 }
+
+export interface CsvConfirmRow {
+  date: string;
+  description: string;
+  amount: number;
+  type: string;
+}
+
+export interface CsvConfirmRequest {
+  accountId: string;
+  transactions: CsvConfirmRow[];
+}
+
+export interface CsvPreviewRow {
+  lineNumber: number;
+  status: 'VALID' | 'INVALID';
+  date: string | null;
+  description: string;
+  amount: number | null;
+  type: string | null;
+  errors: string[];
+}
+
+export interface CsvPreviewResponse {
+  total: number;
+  validCount: number;
+  invalidCount: number;
+  rows: CsvPreviewRow[];
+}

@@ -3,8 +3,10 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { useConfirmImport, usePreviewCSV } from '@/hooks/useTransactions';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useCategories } from '@/hooks/useCategories';
 import { useUIStore } from '@/store/ui.store';
 import { formatCurrency } from '@/utils/currency';
+import type { Category } from '@/types/category.types';
 import type { CsvPreviewResponse, CsvPreviewRow } from '@/types/transaction.types';
 
 interface CsvImportModalProps {
@@ -33,29 +35,39 @@ function TypeBadge({ type }: { type: string | null }) {
 interface RowProps {
   row: CsvPreviewRow;
   description: string;
+  categoryId: string;
   checked: boolean;
+  categories: Category[];
   onDescriptionChange: (v: string) => void;
+  onCategoryChange: (v: string) => void;
   onToggle: () => void;
 }
 
-function PreviewRowItem({ row, description, checked, onDescriptionChange, onToggle }: RowProps) {
+function PreviewRowItem({
+  row, description, categoryId, checked,
+  categories, onDescriptionChange, onCategoryChange, onToggle,
+}: RowProps) {
   const isValid = row.status === 'VALID';
   const amountColor =
-    row.type === 'INCOME' ? 'text-green-600' :
-    row.type === 'EXPENSE' ? 'text-red-600' :
-    'text-blue-600';
+    row.type === 'INCOME'  ? 'text-green-600' :
+    row.type === 'EXPENSE' ? 'text-red-600'   : 'text-blue-600';
 
   const wasNormalized =
     isValid &&
     row.normalizedDescription != null &&
     row.normalizedDescription !== row.description;
 
+  // Filtra categorias compatíveis com o tipo da transação
+  const compatibleCategories = categories.filter(
+    (c) => c.type === row.type || c.type === 'ALL',
+  );
+
   return (
     <>
       <tr className={
         !isValid ? 'bg-red-50' :
-        checked   ? 'hover:bg-gray-50' :
-                    'bg-gray-50 opacity-50'
+        checked  ? 'hover:bg-gray-50' :
+                   'bg-gray-50 opacity-50'
       }>
         {/* Checkbox */}
         <td className="px-3 py-2 w-8">
@@ -64,7 +76,8 @@ function PreviewRowItem({ row, description, checked, onDescriptionChange, onTogg
             checked={isValid ? checked : false}
             disabled={!isValid}
             onChange={onToggle}
-            className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+            className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500
+                       disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
           />
         </td>
         {/* # */}
@@ -73,8 +86,8 @@ function PreviewRowItem({ row, description, checked, onDescriptionChange, onTogg
         <td className="px-3 py-2 text-xs font-mono text-gray-700 whitespace-nowrap w-28">
           {row.date ?? <span className="text-red-400">inválida</span>}
         </td>
-        {/* Descrição — editável para linhas válidas */}
-        <td className="px-3 py-2 min-w-[180px]">
+        {/* Descrição — editável */}
+        <td className="px-3 py-2 min-w-[160px]">
           {isValid ? (
             <div className="flex items-center gap-1">
               <input
@@ -82,7 +95,7 @@ function PreviewRowItem({ row, description, checked, onDescriptionChange, onTogg
                 value={description}
                 onChange={(e) => onDescriptionChange(e.target.value)}
                 disabled={!checked}
-                className="flex-1 text-xs text-gray-900 bg-transparent border border-transparent rounded px-1 py-0.5
+                className="flex-1 min-w-0 text-xs text-gray-900 bg-transparent border border-transparent rounded px-1 py-0.5
                            hover:border-gray-200 focus:border-primary-400 focus:bg-white focus:outline-none
                            disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 title="Clica para editar a descrição"
@@ -91,16 +104,37 @@ function PreviewRowItem({ row, description, checked, onDescriptionChange, onTogg
                 <span
                   title={`Original do CSV: "${row.description}"`}
                   className="flex-shrink-0 text-primary-400 hover:text-primary-600 cursor-help leading-none"
-                  aria-label="Descrição normalizada — ver original"
+                  aria-label="Descrição normalizada"
                 >
                   ✦
                 </span>
               )}
             </div>
           ) : (
-            <span className="text-xs text-gray-400 block truncate max-w-[200px]">
+            <span className="text-xs text-gray-400 block truncate max-w-[160px]">
               {row.description || '—'}
             </span>
+          )}
+        </td>
+        {/* Categoria */}
+        <td className="px-3 py-2 min-w-[130px]">
+          {isValid ? (
+            <select
+              value={categoryId}
+              onChange={(e) => onCategoryChange(e.target.value)}
+              disabled={!checked}
+              className="w-full text-xs text-gray-700 bg-white border border-gray-200 rounded px-1.5 py-0.5
+                         focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300
+                         disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title={categoryId ? undefined : 'Deixa em branco para categorização automática pela AI'}
+            >
+              <option value="">✨ Auto (AI)</option>
+              {compatibleCategories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-gray-300 text-xs">—</span>
           )}
         </td>
         {/* Valor */}
@@ -122,7 +156,7 @@ function PreviewRowItem({ row, description, checked, onDescriptionChange, onTogg
       </tr>
       {!isValid && row.errors.length > 0 && (
         <tr className="bg-red-50">
-          <td colSpan={7} className="px-3 pb-2 pt-0">
+          <td colSpan={8} className="px-3 pb-2 pt-0">
             {row.errors.map((err, i) => (
               <p key={i} className="text-xs text-red-600">• {err}</p>
             ))}
@@ -139,12 +173,14 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
   const [selectedAccountId, setSelectedAccountId] = useState(fixedAccountId ?? '');
   const [preview, setPreview] = useState<CsvPreviewResponse | null>(null);
   const [descriptions, setDescriptions] = useState<Record<number, string>>({});
+  const [categoryIds, setCategoryIds] = useState<Record<number, string>>({});
   const [checkedLines, setCheckedLines] = useState<Set<number>>(new Set());
   const [previewPage, setPreviewPage] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const addToast = useUIStore((s) => s.addToast);
   const { data: accounts } = useAccounts();
+  const { data: categories = [] } = useCategories();
   const { mutate: previewCsv, isPending: isPreviewing } = usePreviewCSV();
   const { mutate: confirmImport, isPending: isImporting } = useConfirmImport();
 
@@ -169,14 +205,17 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
       {
         onSuccess: (data) => {
           const descs: Record<number, string> = {};
+          const cats: Record<number, string> = {};
           const checked = new Set<number>();
           data.rows.forEach((row) => {
             if (row.status === 'VALID') {
               descs[row.lineNumber] = row.normalizedDescription ?? row.description;
+              cats[row.lineNumber] = '';   // vazio = Auto (AI)
               checked.add(row.lineNumber);
             }
           });
           setDescriptions(descs);
+          setCategoryIds(cats);
           setCheckedLines(checked);
           setPreview(data);
           setPreviewPage(0);
@@ -196,6 +235,7 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
         description: (descriptions[row.lineNumber] ?? row.description).trim(),
         amount: row.amount!,
         type: row.type!,
+        categoryId: categoryIds[row.lineNumber] || null,
       }));
 
     confirmImport(
@@ -279,15 +319,13 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
     .filter((r) => r.status === 'VALID')
     .map((r) => r.lineNumber);
   const checkedCount = validLines.filter((ln) => checkedLines.has(ln)).length;
-  const allChecked = validLines.length > 0 && checkedCount === validLines.length;
-  const someChecked = checkedCount > 0 && checkedCount < validLines.length;
+  const manualCount  = validLines.filter((ln) => checkedLines.has(ln) && !!categoryIds[ln]).length;
+  const allChecked   = validLines.length > 0 && checkedCount === validLines.length;
+  const someChecked  = checkedCount > 0 && checkedCount < validLines.length;
 
   const toggleAll = () => {
-    if (allChecked) {
-      setCheckedLines(new Set());
-    } else {
-      setCheckedLines(new Set(validLines));
-    }
+    if (allChecked) setCheckedLines(new Set());
+    else setCheckedLines(new Set(validLines));
   };
 
   const toggleLine = (lineNumber: number) => {
@@ -299,7 +337,7 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
     });
   };
 
-  const totalPages = Math.ceil(preview.rows.length / PAGE_SIZE);
+  const totalPages  = Math.ceil(preview.rows.length / PAGE_SIZE);
   const currentRows = preview.rows.slice(previewPage * PAGE_SIZE, (previewPage + 1) * PAGE_SIZE);
 
   return (
@@ -319,8 +357,13 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
             {validLines.length - checkedCount} excluída{validLines.length - checkedCount !== 1 ? 's' : ''}
           </span>
         )}
+        {manualCount > 0 && (
+          <span className="text-xs text-purple-700 bg-purple-50 px-2 py-1.5 rounded-lg">
+            {manualCount} com categoria manual · {checkedCount - manualCount} para AI
+          </span>
+        )}
         <span className="text-xs text-gray-400 ml-auto hidden sm:block">
-          Edita as descrições · desmarca para excluir
+          Edita descrições · escolhe categoria ou deixa para AI
         </span>
       </div>
 
@@ -330,7 +373,6 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
           <table className="w-full text-left">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {/* Select-all checkbox */}
                 <th className="px-3 py-2 w-8">
                   <input
                     type="checkbox"
@@ -347,6 +389,10 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
                   Descrição
                   <span className="ml-1 text-gray-300 font-normal">(editável)</span>
                 </th>
+                <th className="px-3 py-2 text-xs font-medium text-gray-500">
+                  Categoria
+                  <span className="ml-1 text-gray-300 font-normal">(opcional)</span>
+                </th>
                 <th className="px-3 py-2 text-xs font-medium text-gray-500 text-right">Valor</th>
                 <th className="px-3 py-2 text-xs font-medium text-gray-500">Tipo</th>
                 <th className="px-3 py-2 w-8"></th>
@@ -358,9 +404,14 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
                   key={row.lineNumber}
                   row={row}
                   description={descriptions[row.lineNumber] ?? row.description}
+                  categoryId={categoryIds[row.lineNumber] ?? ''}
                   checked={checkedLines.has(row.lineNumber)}
+                  categories={categories}
                   onDescriptionChange={(val) =>
                     setDescriptions((prev) => ({ ...prev, [row.lineNumber]: val }))
+                  }
+                  onCategoryChange={(val) =>
+                    setCategoryIds((prev) => ({ ...prev, [row.lineNumber]: val }))
                   }
                   onToggle={() => toggleLine(row.lineNumber)}
                 />

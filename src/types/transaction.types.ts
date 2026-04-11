@@ -63,6 +63,7 @@ export interface CsvConfirmRow {
   description: string;
   amount: number;
   type: string;
+  categoryId?: string | null;
 }
 
 export interface CsvConfirmRequest {

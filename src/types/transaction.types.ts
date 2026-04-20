@@ -82,6 +82,25 @@ export interface CsvPreviewRow {
   errors: string[];
 }
 
+export interface BatchCreateTransactionRow {
+  accountId: string;
+  categoryId?: string | null;
+  amount: number;
+  type: TransactionType;
+  description: string;
+  date: string;
+}
+
+export interface BatchCreateTransactionRequest {
+  transactions: BatchCreateTransactionRow[];
+}
+
+export interface BatchCreateTransactionResponse {
+  total: number;
+  created: number;
+  failed: number;
+}
+
 export interface CsvPreviewResponse {
   total: number;
   validCount: number;

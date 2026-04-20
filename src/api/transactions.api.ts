@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Transaction, CreateTransactionDto, UpdateTransactionDto, TransactionFilters, CsvPreviewResponse, CsvConfirmRequest } from '@/types/transaction.types';
+import type { Transaction, CreateTransactionDto, UpdateTransactionDto, TransactionFilters, CsvPreviewResponse, CsvConfirmRequest, BatchCreateTransactionRequest, BatchCreateTransactionResponse } from '@/types/transaction.types';
 import type { PaginatedResponse } from '@/types/api.types';
 
 export const transactionsApi = {
@@ -58,6 +58,11 @@ export const transactionsApi = {
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     );
+    return response.data;
+  },
+
+  batchCreate: async (request: BatchCreateTransactionRequest): Promise<BatchCreateTransactionResponse> => {
+    const response = await apiClient.post<BatchCreateTransactionResponse>('/transactions/batch', request);
     return response.data;
   },
 

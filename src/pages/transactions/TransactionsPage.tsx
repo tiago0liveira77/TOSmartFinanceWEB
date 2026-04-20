@@ -11,6 +11,7 @@ import { TransactionItem } from '@/components/transactions/TransactionItem';
 import { TransactionForm } from '@/components/transactions/TransactionForm';
 import { TransactionFiltersPanel } from '@/components/transactions/TransactionFilters';
 import { CsvImportModal } from '@/components/transactions/CsvImportModal';
+import { BulkTransactionModal } from '@/components/transactions/BulkTransactionModal';
 import type { Transaction, TransactionFilters } from '@/types/transaction.types';
 
 const DEFAULT_FILTERS: TransactionFilters = { page: 0, size: 20, settled: true, types: [], categoryIds: [] };
@@ -19,6 +20,7 @@ export function TransactionsPage() {
   const addToast = useUIStore((s) => s.addToast);
   const [filters, setFilters] = useState<TransactionFilters>(DEFAULT_FILTERS);
   const [createOpen, setCreateOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Transaction | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
@@ -74,6 +76,7 @@ export function TransactionsPage() {
             <Button variant="secondary" size="sm" onClick={() => setCsvOpen(true)}>
               ↑ Importar CSV
             </Button>
+            <Button variant="secondary" size="sm" onClick={() => setBulkOpen(true)}>+ Lote</Button>
             <Button size="sm" onClick={() => setCreateOpen(true)}>+ Nova</Button>
           </div>
         </div>
@@ -174,6 +177,10 @@ export function TransactionsPage() {
         {editTarget && (
           <TransactionForm transaction={editTarget} onSuccess={() => setEditTarget(null)} />
         )}
+      </Modal>
+
+      <Modal isOpen={bulkOpen} onClose={() => setBulkOpen(false)} title="Criar transações em lote" size="4xl">
+        <BulkTransactionModal onSuccess={() => setBulkOpen(false)} />
       </Modal>
 
       <Modal isOpen={csvOpen} onClose={() => setCsvOpen(false)} title="Importar CSV" size="3xl">

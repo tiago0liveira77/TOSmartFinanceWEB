@@ -9,6 +9,46 @@ import { formatCurrency } from '@/utils/currency';
 import type { Category } from '@/types/category.types';
 import type { CsvPreviewResponse, CsvPreviewRow } from '@/types/transaction.types';
 
+// Parses Millennium BCP statement lines into a CSV string.
+// Format: M.DD M.DD DESCRIPTION AMOUNT SALDO
+// INCOME/EXPENSE inferred from balance delta between consecutive rows.
+function parseMillenniumLines(text: string, year: number, initialBalance?: number): string {
+  const NUM = '\\d{1,3}(?:\\s\\d{3})*\\.\\d{2}';
+  const DATE = '\\d{1,2}\\.\\d{2}';
+  // Two dates at start, lazy description, then last two decimal numbers (thousands sep = space)
+  const LINE_RE = new RegExp(`^(${DATE})\\s+(${DATE})\\s+(.+?)\\s+(${NUM})\\s+(${NUM})\\s*$`);
+  const SKIP_RE = /^(SALDO\s+INICIAL|SALDO\s+FINAL|SALDO\s+DISPONIVEL|A\s+TRANSPORTAR|TRANSPORTE\b)/i;
+  const parseNum = (s: string) => parseFloat(s.replace(/\s/g, ''));
+
+  let prevBalance: number | null = initialBalance ?? null;
+  const rows = ['date,description,amount,type'];
+
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line || SKIP_RE.test(line)) continue;
+    const m = line.match(LINE_RE);
+    if (!m) continue;
+
+    const [, , dateValor, description, amountStr, saldoStr] = m;
+    const [mStr, dStr] = dateValor.split('.');
+    const month = parseInt(mStr, 10);
+    const day = parseInt(dStr, 10);
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+    const amount = parseNum(amountStr);
+    const saldo = parseNum(saldoStr);
+
+    const type = prevBalance === null
+      ? 'EXPENSE'
+      : (saldo - prevBalance >= 0 ? 'INCOME' : 'EXPENSE');
+    prevBalance = saldo;
+
+    rows.push(`${dateStr},"${description.trim().replace(/"/g, '""')}",${amount.toFixed(2)},${type}`);
+  }
+
+  return rows.join('\n');
+}
+
 interface CsvImportModalProps {
   accountId?: string;
   onSuccess: () => void;
@@ -35,17 +75,19 @@ function TypeBadge({ type }: { type: string | null }) {
 interface RowProps {
   row: CsvPreviewRow;
   description: string;
+  amount: string;
   categoryId: string;
   checked: boolean;
   categories: Category[];
   onDescriptionChange: (v: string) => void;
+  onAmountChange: (v: string) => void;
   onCategoryChange: (v: string) => void;
   onToggle: () => void;
 }
 
 function PreviewRowItem({
-  row, description, categoryId, checked,
-  categories, onDescriptionChange, onCategoryChange, onToggle,
+  row, description, amount, categoryId, checked,
+  categories, onDescriptionChange, onAmountChange, onCategoryChange, onToggle,
 }: RowProps) {
   const isValid = row.status === 'VALID';
   const amountColor =
@@ -83,11 +125,11 @@ function PreviewRowItem({
         {/* # */}
         <td className="px-2 py-2 text-xs text-gray-400 tabular-nums w-8">{row.lineNumber}</td>
         {/* Data */}
-        <td className="px-3 py-2 text-xs font-mono text-gray-700 whitespace-nowrap w-28">
+        <td className="px-3 py-2 text-xs font-mono text-gray-700 whitespace-nowrap w-32">
           {row.date ?? <span className="text-red-400">inválida</span>}
         </td>
         {/* Descrição — editável */}
-        <td className="px-3 py-2 min-w-[160px]">
+        <td className="px-3 py-2 min-w-[260px]">
           {isValid ? (
             <div className="flex items-center gap-1">
               <input
@@ -117,7 +159,7 @@ function PreviewRowItem({
           )}
         </td>
         {/* Categoria */}
-        <td className="px-3 py-2 min-w-[130px]">
+        <td className="px-3 py-2 min-w-[160px]">
           {isValid ? (
             <select
               value={categoryId}
@@ -137,14 +179,27 @@ function PreviewRowItem({
             <span className="text-gray-300 text-xs">—</span>
           )}
         </td>
-        {/* Valor */}
-        <td className="px-3 py-2 text-xs tabular-nums text-right whitespace-nowrap w-24">
-          {row.amount != null
-            ? <span className={amountColor}>{formatCurrency(row.amount)}</span>
-            : <span className="text-red-400">inválido</span>}
+        {/* Valor — editável */}
+        <td className="px-3 py-2 w-36">
+          {isValid ? (
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => onAmountChange(e.target.value)}
+              disabled={!checked}
+              min="0.01"
+              step="0.01"
+              className={`w-full text-xs tabular-nums text-right bg-transparent border border-transparent rounded px-1 py-0.5
+                         hover:border-gray-200 focus:border-primary-400 focus:bg-white focus:outline-none
+                         disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${amountColor}`}
+              title="Clica para editar o valor"
+            />
+          ) : (
+            <span className="text-red-400 text-xs block text-right">inválido</span>
+          )}
         </td>
         {/* Tipo */}
-        <td className="px-3 py-2 w-24">
+        <td className="px-3 py-2 w-28">
           <TypeBadge type={row.type} />
         </td>
         {/* Estado */}
@@ -169,10 +224,15 @@ function PreviewRowItem({
 
 export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImportModalProps) {
   const [step, setStep] = useState<'upload' | 'preview'>('upload');
+  const [inputMode, setInputMode] = useState<'file' | 'paste'>('file');
   const [file, setFile] = useState<File | null>(null);
+  const [pastedText, setPastedText] = useState('');
+  const [pasteYear, setPasteYear] = useState(String(new Date().getFullYear()));
+  const [pasteInitialBalance, setPasteInitialBalance] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState(fixedAccountId ?? '');
   const [preview, setPreview] = useState<CsvPreviewResponse | null>(null);
   const [descriptions, setDescriptions] = useState<Record<number, string>>({});
+  const [amounts, setAmounts] = useState<Record<number, string>>({});
   const [categoryIds, setCategoryIds] = useState<Record<number, string>>({});
   const [checkedLines, setCheckedLines] = useState<Set<number>>(new Set());
   const [previewPage, setPreviewPage] = useState(0);
@@ -199,22 +259,39 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
   };
 
   const handlePreview = () => {
-    if (!file || !selectedAccountId) return;
+    if (!selectedAccountId) return;
+
+    let fileToPreview: File;
+    if (inputMode === 'file') {
+      if (!file) return;
+      fileToPreview = file;
+    } else {
+      if (!pastedText.trim()) return;
+      const year = parseInt(pasteYear, 10);
+      if (isNaN(year)) return;
+      const initialBal = pasteInitialBalance ? parseFloat(pasteInitialBalance) : undefined;
+      const csv = parseMillenniumLines(pastedText, year, initialBal);
+      fileToPreview = new File([csv], 'extrato.csv', { type: 'text/csv' });
+    }
+
     previewCsv(
-      { file, accountId: selectedAccountId },
+      { file: fileToPreview, accountId: selectedAccountId },
       {
         onSuccess: (data) => {
           const descs: Record<number, string> = {};
+          const amts: Record<number, string> = {};
           const cats: Record<number, string> = {};
           const checked = new Set<number>();
           data.rows.forEach((row) => {
             if (row.status === 'VALID') {
               descs[row.lineNumber] = row.normalizedDescription ?? row.description;
+              amts[row.lineNumber] = row.amount != null ? String(row.amount) : '';
               cats[row.lineNumber] = '';   // vazio = Auto (AI)
               checked.add(row.lineNumber);
             }
           });
           setDescriptions(descs);
+          setAmounts(amts);
           setCategoryIds(cats);
           setCheckedLines(checked);
           setPreview(data);
@@ -233,7 +310,7 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
       .map((row) => ({
         date: row.date!,
         description: (descriptions[row.lineNumber] ?? row.description).trim(),
-        amount: row.amount!,
+        amount: parseFloat(amounts[row.lineNumber] ?? String(row.amount!)),
         type: row.type!,
         categoryId: categoryIds[row.lineNumber] || null,
       }));
@@ -256,15 +333,28 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
 
   // ── Passo 1: Upload ──────────────────────────────────────────────────────
   if (step === 'upload') {
+    const canPreview = !!selectedAccountId && (
+      inputMode === 'file' ? !!file : !!pastedText.trim()
+    );
+
     return (
       <div className="space-y-4 max-w-md mx-auto">
-        <div>
-          <p className="text-sm text-gray-600 mb-3">
-            Importa transações a partir de um ficheiro CSV. Formato esperado:
-          </p>
-          <code className="block bg-gray-50 rounded-lg p-3 text-xs text-gray-700 font-mono whitespace-pre">
-            {'date,description,amount,type\n2024-01-15,"Supermercado",-45.30,EXPENSE\n2024-01-16,"Salário",1800.00,INCOME'}
-          </code>
+        {/* Mode tabs */}
+        <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+          {(['file', 'paste'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setInputMode(mode)}
+              className={`flex-1 py-2 font-medium transition-colors ${
+                inputMode === mode
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {mode === 'file' ? 'Ficheiro CSV' : 'Colar linhas'}
+            </button>
+          ))}
         </div>
 
         {!fixedAccountId && (
@@ -276,34 +366,94 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
           />
         )}
 
-        <div
-          className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary-300 hover:bg-primary-50/30 transition-colors"
-          onClick={() => inputRef.current?.click()}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".csv"
-            className="sr-only"
-            onChange={handleFileChange}
-          />
-          {file ? (
+        {inputMode === 'file' ? (
+          <>
             <div>
-              <p className="text-sm font-medium text-gray-900">📄 {file.name}</p>
-              <p className="text-xs text-gray-500 mt-1">{(file.size / 1024).toFixed(1)} KB</p>
+              <p className="text-sm text-gray-500 mb-2">Formato esperado:</p>
+              <code className="block bg-gray-50 rounded-lg p-3 text-xs text-gray-700 font-mono whitespace-pre">
+                {'date,description,amount,type\n2024-01-15,"Supermercado",45.30,EXPENSE\n2024-01-16,"Salário",1800.00,INCOME'}
+              </code>
             </div>
-          ) : (
+            <div
+              className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary-300 hover:bg-primary-50/30 transition-colors"
+              onClick={() => inputRef.current?.click()}
+            >
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".csv"
+                className="sr-only"
+                onChange={handleFileChange}
+              />
+              {file ? (
+                <div>
+                  <p className="text-sm font-medium text-gray-900">📄 {file.name}</p>
+                  <p className="text-xs text-gray-500 mt-1">{(file.size / 1024).toFixed(1)} KB</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm text-gray-500">Clica para selecionar ficheiro CSV</p>
+                  <p className="text-xs text-gray-400 mt-1">Máximo 10 MB</p>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              <div className="w-24">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Ano</label>
+                <input
+                  type="number"
+                  value={pasteYear}
+                  onChange={(e) => setPasteYear(e.target.value)}
+                  className="w-full text-sm px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-400"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Saldo antes do 1.º movimento{' '}
+                  <span className="text-gray-400 font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={pasteInitialBalance}
+                  onChange={(e) => setPasteInitialBalance(e.target.value)}
+                  placeholder="ex: 1352.04"
+                  className="w-full text-sm px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-400"
+                />
+              </div>
+            </div>
             <div>
-              <p className="text-sm text-gray-500">Clica para seleccionar ficheiro CSV</p>
-              <p className="text-xs text-gray-400 mt-1">Máximo 10 MB</p>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Linhas do extrato{' '}
+                <span className="text-gray-400 font-normal">
+                  (formato: M.DD M.DD DESCRIÇÃO VALOR SALDO)
+                </span>
+              </label>
+              <textarea
+                value={pastedText}
+                onChange={(e) => setPastedText(e.target.value)}
+                placeholder={
+                  'M.DD M.DD DESCRICAO MONTANTE SALDO'
+                }
+                rows={9}
+                className="w-full text-xs font-mono px-3 py-2 border border-gray-200 rounded-lg
+                           focus:outline-none focus:ring-1 focus:ring-primary-400 resize-none
+                           placeholder:text-gray-300"
+              />
             </div>
-          )}
-        </div>
+            <p className="text-xs text-gray-400">
+              Sem saldo inicial, o 1.º movimento é classificado como Despesa por defeito.
+            </p>
+          </div>
+        )}
 
         <Button
           className="w-full"
           onClick={handlePreview}
-          disabled={!file || !selectedAccountId}
+          disabled={!canPreview}
           isLoading={isPreviewing}
         >
           Pré-visualizar
@@ -404,11 +554,15 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
                   key={row.lineNumber}
                   row={row}
                   description={descriptions[row.lineNumber] ?? row.description}
+                  amount={amounts[row.lineNumber] ?? String(row.amount ?? '')}
                   categoryId={categoryIds[row.lineNumber] ?? ''}
                   checked={checkedLines.has(row.lineNumber)}
                   categories={categories}
                   onDescriptionChange={(val) =>
                     setDescriptions((prev) => ({ ...prev, [row.lineNumber]: val }))
+                  }
+                  onAmountChange={(val) =>
+                    setAmounts((prev) => ({ ...prev, [row.lineNumber]: val }))
                   }
                   onCategoryChange={(val) =>
                     setCategoryIds((prev) => ({ ...prev, [row.lineNumber]: val }))
@@ -444,7 +598,7 @@ export function CsvImportModal({ accountId: fixedAccountId, onSuccess }: CsvImpo
       )}
 
       <div className="flex gap-3 pt-1">
-        <Button variant="secondary" className="flex-1" onClick={() => setStep('upload')} disabled={isImporting}>
+        <Button variant="secondary" className="flex-1" onClick={() => { setStep('upload'); setPreview(null); }} disabled={isImporting}>
           ← Voltar
         </Button>
         <Button

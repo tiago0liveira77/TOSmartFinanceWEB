@@ -183,7 +183,7 @@ export function TransactionsPage() {
         <BulkTransactionModal onSuccess={() => setBulkOpen(false)} />
       </Modal>
 
-      <Modal isOpen={csvOpen} onClose={() => setCsvOpen(false)} title="Importar CSV" size="3xl">
+      <Modal isOpen={csvOpen} onClose={() => setCsvOpen(false)} title="Importar CSV" size="5xl">
         <CsvImportModal onSuccess={() => setCsvOpen(false)} />
       </Modal>
 
